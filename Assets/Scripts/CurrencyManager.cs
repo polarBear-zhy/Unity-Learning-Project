@@ -7,7 +7,8 @@ using UnityEngine.UI;
 public class CurrencyManager : MonoBehaviour
 {
     public static CurrencyManager Instance;//金币管理的实例
-    [SerializeField] int gold = 100;//初始金币数
+    public PlayerData data = new PlayerData();//创建了一个新的对象，里面放着Player相关的量
+    //[SerializeField] int gold = data.gold;//初始金币数
     [SerializeField] TMP_Text goldText;//UI的text显示变量
     public int goldMultiplier = 1;//默认的金币倍率是1
     public Slider powerUpSlider;//场景里的Slider
@@ -21,7 +22,8 @@ public class CurrencyManager : MonoBehaviour
     // Update is called once per frame
     private void Start()
     {
-        gold = PlayerPrefs.GetInt("SavedGold", 0);
+        //data.gold = PlayerPrefs.GetInt("SavedGold", 0);
+        LoadGame();
         //如果有存档，就读取它；没有就默认为0
         StartCoroutine(AddGoldEverySecond());
         //游戏一开始，就启动“印钞机”
@@ -47,18 +49,8 @@ public class CurrencyManager : MonoBehaviour
         //    gold += 1;
         //}
         UpdateUI();
-        if (Input.GetKeyDown(KeyCode.D))
-        {
-            if (PlayerPrefs.HasKey("SavedGold") )
-            {
-                PlayerPrefs.DeleteAll();
-                gold = 0;
-                UpdateUI();
-                //删除后最好手动刷新UI，或者把内存里的变量清零
-                Debug.Log("已经清除金币的存档");
-            }
-        }
-        //按下D，删除金币挂机的存档
+        SaveAndDelete();
+        //存档和删除存档代码
         if (Input.GetKeyDown(KeyCode.B))
         {
             if (powerUpRoutine != null)
@@ -68,6 +60,26 @@ public class CurrencyManager : MonoBehaviour
             powerUpRoutine = StartCoroutine(PowerUpRoutine());
         }
         //按下B，进入双倍收益模式，持续5秒
+    }
+    public void SaveAndDelete()
+    {
+        if (Input.GetKeyDown(KeyCode.K))
+        {
+            if (PlayerPrefs.HasKey("SaveSlot_1"))
+            {
+                PlayerPrefs.DeleteAll();
+                data.gold = 0;
+                UpdateUI();
+                //删除后最好手动刷新UI，或者把内存里的变量清零
+                Debug.Log("已经清除金币的存档");
+            }
+        }
+        if (Input.GetKeyDown(KeyCode.L))
+        {
+            SaveGame();
+            UpdateUI();
+            Debug.Log("存档成功！");
+        }
     }
     IEnumerator PowerUpRoutine()
     {
@@ -97,18 +109,18 @@ public class CurrencyManager : MonoBehaviour
         {
             return;
         }
-        if (gold >= 1000000)
+        if (data.gold >= 1000000)
         {
-            goldText.text = "Gold:" + (gold / 1000000f).ToString("F1") + "M";
+            goldText.text = "Gold:" + (data.gold / 1000000f).ToString("F1") + "M";
 
         }
-        else if (gold >= 1000)
+        else if (data.gold >= 1000)
         {
-            goldText.text = "Gold:" + (gold / 1000f).ToString("F1") + "k";
+            goldText.text = "Gold:" + (data.gold / 1000f).ToString("F1") + "k";
         }
         else
         {
-            goldText.text = "Gold:" + gold.ToString();
+            goldText.text = "Gold:" + data.gold.ToString();
         }
         
     }
@@ -119,9 +131,9 @@ public class CurrencyManager : MonoBehaviour
 
     public void AddGold(int amount)
     {
-        gold = Mathf.Clamp(gold + amount, 0, 999999999);
+        data.gold = Mathf.Clamp(data.gold + amount, 0, 999999999);
 
-        PlayerPrefs.SetInt("SavedGold", gold);
+        //PlayerPrefs.SetInt("SavedGold", data.gold);
         //把新的金币数存起来，钥匙名叫“SavedGold”
         //这是一个存档功能
     }
@@ -134,12 +146,37 @@ public class CurrencyManager : MonoBehaviour
 
     public bool TrySpendGold(int price)
     {
-        if (gold >= price)
+        if (data.gold >= price)
         {
-            gold -= price;
+            data.gold -= price;
             return true;
         }
         return false;
     }
     //检查并扣钱的方法
+    public void SaveGame()
+    {
+        //将整个data对象转为字符串,这就是序列化
+        string json = JsonUtility.ToJson(data);
+        PlayerPrefs.SetString("SaveSlot_1", json);
+        PlayerPrefs.Save();
+        Debug.Log("数据已经打包存入云端（本地）："+json);
+    }
+    public void LoadGame()
+    {
+        string json = PlayerPrefs.GetString("SaveSlot_1");
+        if (!string.IsNullOrEmpty(json))
+        {
+            //将字符串转回对象（反序列化）
+            data = JsonUtility.FromJson<PlayerData>(json);
+            UpdateUI();
+        }
+    }
+}
+[System.Serializable]
+public class PlayerData
+{
+    public int gold=0;
+    public int diamond;
+    public float lastMultiplier;
 }
