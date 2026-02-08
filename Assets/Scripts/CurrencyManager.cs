@@ -25,6 +25,12 @@ public class CurrencyManager : MonoBehaviour
         //data.gold = PlayerPrefs.GetInt("SavedGold", 0);
         LoadGame();
         //如果有存档，就读取它；没有就默认为0
+        if (data.gold == 0)
+        {
+            data.gold = 500;
+            UpdateUI();
+        }
+        //如果是新玩家开始，钱为0，给你初始的500块钱
         StartCoroutine(AddGoldEverySecond());
         //游戏一开始，就启动“印钞机”
         
@@ -154,14 +160,18 @@ public class CurrencyManager : MonoBehaviour
         return false;
     }
     //检查并扣钱的方法
+    //游戏存档
     public void SaveGame()
     {
+        data.lastSaveTime = System.DateTime.Now.ToString();
+        //存储当前时间
         //将整个data对象转为字符串,这就是序列化
         string json = JsonUtility.ToJson(data);
         PlayerPrefs.SetString("SaveSlot_1", json);
         PlayerPrefs.Save();
         Debug.Log("数据已经打包存入云端（本地）："+json);
     }
+    //游戏读档
     public void LoadGame()
     {
         string json = PlayerPrefs.GetString("SaveSlot_1");
@@ -171,6 +181,22 @@ public class CurrencyManager : MonoBehaviour
             data = JsonUtility.FromJson<PlayerData>(json);
             UpdateUI();
         }
+
+        if (!string.IsNullOrEmpty(data.lastSaveTime))
+        {
+            System.DateTime lastTime = System.DateTime.Parse(data.lastSaveTime);
+            System.TimeSpan offlineTime = System.DateTime.Now - lastTime;
+
+            int offlineBonus = (int)offlineTime.TotalMinutes * 10;
+            if (offlineBonus > 0)
+            {
+                AddGold(offlineBonus);
+                Debug.Log($"欢迎回来！你这次的挂机收益是{offlineTime.TotalMinutes:F1}");
+
+            }
+        }
+        //根据存档时间判断挂机时间跨度
+        //计算挂机收益
     }
 }
 [System.Serializable]
@@ -179,4 +205,8 @@ public class PlayerData
     public int gold=0;
     public int diamond;
     public float lastMultiplier;
+    public string lastSaveTime;
 }
+//[System.Serializable]代表的是可序列化
+//Unity中不是所有类都可以序列化，不是都可以降为成JSON说明书的
+//[System.Serializable]就让我这个PlayerData类可以序列化，可以降维成JSON类型，可以使用JsonUtility
